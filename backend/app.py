@@ -36,7 +36,7 @@ def rewrite_text(text):
         output = model.generate(
             **inputs,
             max_new_tokens=200,
-            temperature=0.6,  # 少し低めのtemperature
+            temperature=0.6,  
             do_sample=True,
             top_p=0.9,  # top_pを追加して精度向上を狙う
             top_k=50     # top_kを追加して生成の多様性を調整
