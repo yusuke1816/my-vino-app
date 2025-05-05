@@ -2,8 +2,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from pptx import Presentation
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
 
 app = Flask(__name__)
 
@@ -16,10 +14,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-model_name = "elyza/ELYZA-japanese-Llama-2-7b-instruct"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32, device_map={"": "cpu"})
-
 def extract_text_from_ppt(file_path):
     prs = Presentation(file_path)
     text = []
@@ -30,24 +24,21 @@ def extract_text_from_ppt(file_path):
     return "\n".join(text)
 
 def rewrite_text(text):
-    prompt = f"以下の文章を丁寧な日本語に書き直してください。\n{text.strip()}\n丁寧な文章:"
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)  # max_lengthを短縮
-    with torch.no_grad():
-        output = model.generate(
-            **inputs,
-            max_new_tokens=200,
-            temperature=0.6,  
-            do_sample=True,
-            top_p=0.9,  # top_pを追加して精度向上を狙う
-            top_k=50     # top_kを追加して生成の多様性を調整
-        )
-    result = tokenizer.decode(output[0], skip_special_tokens=True)
-    
-    # ここで書き直し結果をログに出力
-    print("Original Text:", text)
-    print("Refined Text:", result)
-    
-    return result.replace(prompt, "").strip()
+    # 非AIによる簡易な丁寧語変換（例）
+    replacements = {
+        "です": "でございます",
+        "ます": "いたします",
+        "して": "いたしまして",
+        "ありがとう": "ありがとうございます",
+        "ください": "お願いいたします",
+        "ない": "ございません",
+        "できる": "可能です",
+        "いる": "おります",
+        "わかる": "理解いたします"
+    }
+    for word, polite in replacements.items():
+        text = text.replace(word, polite)
+    return text
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -66,7 +57,7 @@ def upload_file():
 
     try:
         ppt_text = extract_text_from_ppt(file_path)
-        refined_text = rewrite_text(ppt_text)  # ここで丁寧な日本語に変換
+        refined_text = rewrite_text(ppt_text)
         return jsonify({'ppt_text': refined_text})
     except Exception as e:
         return jsonify({'error': f'Processing failed: {str(e)}'}), 500
